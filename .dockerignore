@@ -1,0 +1,12 @@
+
+/target
+
+.git
+
+.idea
+.vscode
+
+.env
+
+Dockerfile
+docker-compose.yml

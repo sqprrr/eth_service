@@ -1,0 +1,19 @@
+[package]
+name = "eth_service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+axum = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+ethers = { version = "2", features = ["abigen", "ws", "rustls"] }
+futures = "0.3"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+
+clap = { version = "4", features = ["derive"] } 
+config = "0.14"
+
+dotenvy = "0.15"

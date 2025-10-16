@@ -1,0 +1,8 @@
+[database]
+url = "postgres://user:pass@localhost:5432/db_name"
+
+[ethereum]
+rpc_url = "wss://mainnet.infura.io/ws/v3/your_infura_key"
+
+[api]
+listen_address = "127.0.0.1:3000"
