@@ -3,13 +3,11 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub database: DatabaseConfig,
     pub ethereum: EthereumConfig,
     pub api: ApiConfig,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct DatabaseConfig { pub url: String }
+
 #[derive(Debug, Deserialize)]
 pub struct EthereumConfig { pub rpc_url: String }
 #[derive(Debug, Deserialize)]
