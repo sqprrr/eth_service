@@ -1,31 +1,28 @@
+    
+mod api;
+mod db;
+mod indexer;
+mod settings;
 
-    mod api;
-    mod config;
-    mod db;
-    mod indexer;
-
-
-    #[tokio::main]
-    async fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
- 
-        let config = config::load_config()?;
+    let settings = settings::get_settings()?;
+
+    let pool = db::create_pool(&settings.database_url).await?;
+    println!("Connected to DB");
+
+    let pool_for_indexer = pool.clone();
+    let pool_for_api = pool.clone();
     
-        let pool = db::create_pool(&config.database.url).await?;
-        println!("Connected to DB");
+    tokio::spawn(async move {
+        if let Err(e) = indexer::run_indexer(settings.ethereum_rpc_url, pool_for_indexer).await {
+            eprintln!("Fatal error in indexer: {}", e);
+        }
+    });
 
-        let pool_for_indexer = pool.clone();
-        let pool_for_api = pool.clone();
-        let rpc_url_for_indexer = config.ethereum.rpc_url.clone();
+    api::run_api_server(pool_for_api, settings.api_listen_address).await;
 
-        tokio::spawn(async move {
-            if let Err(e) = indexer::run_indexer(rpc_url_for_indexer, pool_for_indexer).await {
-                eprintln!("Fatal error in indexer: {}", e);
-            }
-        });
-
-        api::run_api_server(pool_for_api, config.api.listen_address).await;
-
-        Ok(())
-    }
+    Ok(())
+}
