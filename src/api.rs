@@ -2,77 +2,38 @@ use crate::api_models::{ListPaymentsParams, SendTransactionPayload};
 use crate::db::Payment;
 use crate::state::AppState;
 use crate::tx_sender;
-
-
+use crate::storage::Storage;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     routing::{get}, 
     Json, Router,
 };
-use chrono::{TimeZone, Utc};
-use sqlx::{PgPool, Postgres, QueryBuilder};
 
 async fn list_payments(
     State(app_state): State<AppState>, 
     Query(params): Query<ListPaymentsParams>,
 ) -> Json<Vec<Payment>> {
-    let mut query_builder: QueryBuilder<Postgres> =
-        QueryBuilder::new("SELECT * FROM payments WHERE 1=1");
-
-    if let Some(sender) = params.sender {
-        query_builder.push(" AND sender = ");
-        query_builder.push_bind(sender);
-    }
-    if let Some(recipient) = params.recipient {
-        query_builder.push(" AND recipient = ");
-        query_builder.push_bind(recipient);
-    }
-    if let Some(participant) = params.participant {
-        query_builder.push(" AND (sender = ");
-        query_builder.push_bind(participant.clone());
-        query_builder.push(" OR recipient = ");
-        query_builder.push_bind(participant);
-        query_builder.push(")");
-    }
-    if let Some(ts) = params.created_after {
-        if let Some(dt) = Utc.timestamp_opt(ts, 0).single() {
-            query_builder.push(" AND \"timestamp\" > ");
-            query_builder.push_bind(dt);
-        }
-    }
-    if let Some(ts) = params.created_before {
-        if let Some(dt) = Utc.timestamp_opt(ts, 0).single() {
-            query_builder.push(" AND \"timestamp\" < ");
-            query_builder.push_bind(dt);
-        }
-    }
-
-    query_builder.push(" ORDER BY block_number DESC LIMIT 100");
-
-    let payments = query_builder
-        .build_query_as()
-        .fetch_all(&app_state.pool) 
-        .await
-        .unwrap_or_else(|e| {
+    match app_state.pool.list_payments(&params).await {
+        Ok(payments) => Json(payments),
+        Err(e) => {
             eprintln!("Failed to fetch payments: {}", e);
-            vec![]
-        });
-
-    Json(payments)
+            Json(vec![])
+        }
+    }
 }
 
 async fn get_payment_by_id(
     State(app_state): State<AppState>, 
     Path(id): Path<i64>,
 ) -> Json<Option<Payment>> {
-    let payment = sqlx::query_as("SELECT * FROM payments WHERE id = $1")
-        .bind(id)
-        .fetch_optional(&app_state.pool) 
-        .await
-        .unwrap_or(None);
-
-    Json(payment)
+    match app_state.pool.get_payment_by_id(id).await {
+        Ok(payment) => Json(payment),
+        Err(e) => {
+            eprintln!("Error fetching payment by id: {}", e);
+            Json(None)
+        }
+    }
 }
 
 async fn send_transaction(

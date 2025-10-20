@@ -54,8 +54,8 @@ pub async fn run_indexer(settings: crate::settings::Settings, storage: PgPool) -
     .parse()
     .expect("Invalid contract address");
 
-let contract = ERC20::new(contract_address, provider.clone());
-let http_contract = ERC20::new(contract_address, http_provider.clone());
+    let contract = ERC20::new(contract_address, provider.clone());
+    let http_contract = ERC20::new(contract_address, http_provider.clone());
 
     let last_synced_block = storage.get_last_synced_block().await?;
     let from_block = if let Some(last_block_in_db) = last_synced_block {
@@ -76,10 +76,13 @@ let http_contract = ERC20::new(contract_address, http_provider.clone());
     };
 
     println!("Phase 1: Catching up on any missed blocks...");
+
     let current_block = http_provider.get_block_number().await?.as_u64();
+
     if from_block <= current_block {
         const BATCH_SIZE: u64 = 10; 
         let mut current_from = from_block;
+        
         while current_from <= current_block {
             let to_block = (current_from + BATCH_SIZE - 1).min(current_block);
             println!("   -> Syncing blocks from {} to {}", current_from, to_block);

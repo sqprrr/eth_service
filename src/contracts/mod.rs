@@ -1,5 +1,3 @@
-
-
 pub mod erc20 {
     use ethers::prelude::abigen;
     abigen!(

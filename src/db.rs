@@ -2,6 +2,7 @@ pub use serde::Serialize;
 use crate::storage::Storage;
 use async_trait::async_trait;
 pub use sqlx::{FromRow, PgPool, Row};
+use crate::api_models::ListPaymentsParams;
 
 
 #[derive(Debug, Serialize, FromRow)]
@@ -66,5 +67,51 @@ impl Storage for PgPool {
             Some(row) => Ok(row.get(0)),
             None => Ok(None),
         }
+    }
+
+    async fn get_payment_by_id(&self, id: i64) -> anyhow::Result<Option<Payment>> {
+        let payment = sqlx::query_as("SELECT * FROM payments WHERE id = $1")
+            .bind(id)
+            .fetch_optional(self) 
+            .await?; 
+
+        Ok(payment) 
+    }
+
+        async fn list_payments(&self, params: &ListPaymentsParams) -> anyhow::Result<Vec<Payment>> {
+        use chrono::{TimeZone, Utc};
+        use sqlx::QueryBuilder;
+
+        let mut query_builder = QueryBuilder::new("SELECT * FROM payments WHERE 1=1");
+
+        if let Some(sender) = &params.sender {
+            query_builder.push(" AND sender = ").push_bind(sender);
+        }
+        if let Some(recipient) = &params.recipient {
+            query_builder.push(" AND recipient = ").push_bind(recipient);
+        }
+        if let Some(participant) = &params.participant {
+            query_builder
+                .push(" AND (sender = ")
+                .push_bind(participant.clone())
+                .push(" OR recipient = ")
+                .push_bind(participant)
+                .push(")");
+        }
+        if let Some(ts) = params.created_after {
+            if let Some(dt) = Utc.timestamp_opt(ts, 0).single() {
+                query_builder.push(" AND \"timestamp\" > ").push_bind(dt);
+            }
+        }
+        if let Some(ts) = params.created_before {
+            if let Some(dt) = Utc.timestamp_opt(ts, 0).single() {
+                query_builder.push(" AND \"timestamp\" < ").push_bind(dt);
+            }
+        }
+
+        query_builder.push(" ORDER BY block_number DESC LIMIT 100");
+
+        let payments = query_builder.build_query_as::<Payment>().fetch_all(self).await?;
+        Ok(payments)
     }
 }
